@@ -13,7 +13,7 @@ const Footer = () => {
 
   const socialLinks = [
     { icon: Twitter, label: 'Twitter', href: '#' },
-    { icon: Linkedin, label: 'LinkedIn', href: '#' },
+    { icon: Linkedin, label: 'LinkedIn', href: 'https://www.linkedin.com/company/c7corp/' },
     { icon: Github, label: 'GitHub', href: '#' },
   ];
 
@@ -111,6 +111,7 @@ const Footer = () => {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   aria-label={label}
+                  target='_blank"'
                 >
                   <Icon className="w-5 h-5" />
                 </motion.a>
@@ -120,8 +121,8 @@ const Footer = () => {
               <p className="text-xs text-muted-foreground mb-2">
                 Content owner? Request removal:
               </p>
-              <a href="mailto:dmca@aipulsetoday.com" className="text-sm text-primary hover:underline">
-                dmca@aipulsetoday.com
+              <a href="mailto:support@c7corp.com" className="text-sm text-primary hover:underline">
+                support@c7corp.com
               </a>
             </div>
           </div>
@@ -136,7 +137,7 @@ const Footer = () => {
               <span>© 2024 AI Pulse Today. Crafted with</span>
               <Heart className="w-4 h-4 text-coral fill-coral" />
               <span>by</span>
-              <span className="font-medium text-foreground">Mohit Singh</span>
+              <span className="font-medium text-foreground">C7Corp</span>
               <span>in Dubai</span>
             </div>
 

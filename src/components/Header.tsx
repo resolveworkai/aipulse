@@ -50,7 +50,7 @@ const Header = ({ isDark, onToggleTheme, lastUpdated }: HeaderProps) => {
                 AI Pulse Today
               </span>
               <span className="text-xs text-muted-foreground hidden sm:block">
-                By Mohit Singh | Dubai, UAE 🇦🇪
+                By C7Corp | Dubai, UAE 🇦🇪
               </span>
             </div>
           </motion.div>
@@ -152,7 +152,7 @@ const Header = ({ isDark, onToggleTheme, lastUpdated }: HeaderProps) => {
                 </button>
               </div>
               <span className="text-xs text-muted-foreground">
-                By Mohit Singh | Dubai, UAE 🇦🇪
+                By C7Corp | Dubai, UAE 🇦🇪
               </span>
             </div>
           </motion.div>

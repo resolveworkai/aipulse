@@ -166,7 +166,14 @@ const Index = () => {
               transition={{ delay: 0.3 }}
               className="text-sm text-muted-foreground mb-8"
             >
-              Crafted with ❤️ by <span className="font-semibold text-foreground">Mohit Singh</span> in Dubai, UAE 🇦🇪
+              Crafted with ❤️ by <a
+                  href="https://www.linkedin.com/company/c7corp/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-foreground hover:underline"
+                >
+                  C7Corp
+                </a>{" "} in Dubai, UAE 🇦🇪
             </motion.p>
 
             {/* Search Bar */}
