@@ -1,191 +1,184 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from '@/components/Header';
 import FilterBar from '@/components/FilterBar';
-import ArticleCard from '@/components/ArticleCard';
-import HeroStats from '@/components/HeroStats';
+import ArticleCardWrapper, { FeaturedCard } from '@/components/ArticleCard';
+import HeroSide from '@/components/HeroSide';
 import Footer from '@/components/Footer';
-import LoadingSkeleton from '@/components/LoadingSkeleton';
-import BackToTop from '@/components/BackToTop';
 import ScrollProgress from '@/components/ScrollProgress';
-import SearchBar from '@/components/SearchBar';
-import InfiniteScrollTrigger from '@/components/InfiniteScrollTrigger';
-import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import CommandPalette from '@/components/CommandPalette';
+import HowToSection from '@/components/HowToSection';
 import { mockArticles, sources } from '@/data/mockArticles';
 
+const ITEMS_PER_PAGE = 8;
+
 const Index = () => {
-  const [isDark, setIsDark] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [activeFilter, setActiveFilter] = useState('trending');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Apply dark/light theme
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.remove('light');
-    } else {
-      document.documentElement.classList.add('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('pulse-theme');
+      if (stored === 'dark' || stored === 'light') return stored;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-  }, [isDark]);
+    return 'light';
+  });
 
-  // Simulate initial load
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeFilter, setActiveFilter]     = useState('trending');
+  const [shown, setShown]                   = useState(ITEMS_PER_PAGE);
+  const [bookmarks, setBookmarks]           = useState<Set<string>>(() => new Set());
+  const [searchOpen, setSearchOpen]         = useState(false);
+  const [toast, setToast]                   = useState<{ msg: string; sub: string } | null>(null);
+  const [showTop, setShowTop]               = useState(false);
+  const [lastUpdated, setLastUpdated]       = useState(new Date());
+  const isFirstRender = useRef(true);
+
+  // Apply theme to <html>
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('pulse-theme', theme);
+  }, [theme]);
+
+  // Back-to-top visibility
+  useEffect(() => {
+    const onScroll = () => {
+      const h = document.documentElement;
+      setShowTop(h.scrollTop > h.clientHeight * 0.4);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Auto-refresh simulation (30 minutes in production, 30 seconds for demo)
+  // Cmd-K
   useEffect(() => {
-    const interval = setInterval(() => {
-      setLastUpdated(new Date());
-    }, 30 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Keyboard shortcut for search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
-        searchInput?.focus();
+        setSearchOpen(true);
       }
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Filter and search articles
+  // Auto-refresh simulation
+  useEffect(() => {
+    const id = setInterval(() => {
+      setLastUpdated(new Date());
+      if (!isFirstRender.current) {
+        setToast({ msg: 'Pulse refreshed', sub: '3 new stories added' });
+      }
+    }, 30 * 1000);
+    isFirstRender.current = false;
+    return () => clearInterval(id);
+  }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  // Reset pagination when filters change
+  useEffect(() => { setShown(ITEMS_PER_PAGE); }, [activeCategory, activeFilter]);
+
+  // Filter + sort
   const filteredArticles = useMemo(() => {
-    let articles = [...mockArticles];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      articles = articles.filter(article => 
-        article.title.toLowerCase().includes(query) ||
-        article.punchyTitle.toLowerCase().includes(query) ||
-        article.source.toLowerCase().includes(query) ||
-        article.tags.some(tag => tag.toLowerCase().includes(query)) ||
-        article.punchySummary.toLowerCase().includes(query)
-      );
-    }
-
-    // Category filter
+    let list = [...mockArticles];
     if (activeCategory !== 'all') {
-      articles = articles.filter(article => article.category === activeCategory);
+      list = list.filter(a => a.category === activeCategory);
     }
-
-    // Sort by filter
     switch (activeFilter) {
       case 'latest':
-        articles.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
+        list.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
         break;
       case 'top':
-        articles.sort((a, b) => b.engagement.score - a.engagement.score);
+        list.sort((a, b) => b.engagement.score - a.engagement.score);
         break;
-      case 'trending':
       default:
-        // Already sorted by rank in mock data
+        // trending — keep original rank order
         break;
     }
+    return list.map((a, i) => ({ ...a, rank: i + 1 }));
+  }, [activeCategory, activeFilter]);
 
-    // Update ranks based on current sort
-    return articles.map((article, index) => ({
-      ...article,
-      rank: index + 1
-    }));
-  }, [activeCategory, activeFilter, searchQuery]);
+  const visible  = filteredArticles.slice(0, shown);
+  const hasMore  = shown < filteredArticles.length;
+  const featured = visible[0];
+  const rest     = visible.slice(1);
 
-  // Infinite scroll
-  const {
-    displayedArticles,
-    loadMore,
-    hasMore,
-    isLoadingMore,
-    totalCount,
-    displayedCount
-  } = useInfiniteScroll({ articles: filteredArticles, itemsPerPage: 10 });
-
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
+  const toggleBookmark = useCallback((id: string) => {
+    setBookmarks(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
   }, []);
 
+  const updatedAgo = (() => {
+    const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
+    if (diff < 1) return 'just now';
+    if (diff === 1) return '1m ago';
+    return `${diff}m ago`;
+  })();
+
+  const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform);
+
   return (
-    <div className="min-h-screen">
+    <>
       <ScrollProgress />
-      
+      <div className="bg-atmosphere" aria-hidden="true" />
+
       <Header
-        isDark={isDark}
-        onToggleTheme={() => setIsDark(!isDark)}
-        lastUpdated={lastUpdated}
+        theme={theme}
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        onOpenSearch={() => setSearchOpen(true)}
+        updatedAgo={updatedAgo}
       />
 
-      {/* Hero Section */}
-      <section className="relative py-12 md:py-16 overflow-hidden">
-        {/* Background Glow */}
-        <div className="absolute inset-0 bg-gradient-glow opacity-50" />
-        
-        <div className="container mx-auto px-4 relative">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center max-w-4xl mx-auto"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-              </span>
-              <span className="text-sm font-medium text-primary">Live • Auto-updating every 30 minutes</span>
-            </motion.div>
+      {/* ── Hero ─────────────────────────────────────────────── */}
+      <section className="hero">
+        <div className="shell">
+          <div className="hero-grid">
+            <div>
+              <div className="hero-kicker fade-up">
+                <span className="live-dot" />
+                <span>LIVE · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase()}</span>
+              </div>
 
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
-              <span className="gradient-text">Top 50 AI & ML News</span>
-              <br />
-              <span className="text-foreground">Updated in Real-Time</span>
-            </h1>
+              <h1 className="fade-up" style={{ animationDelay: '120ms' }}>
+                The signal,<br /><em>distilled.</em>
+              </h1>
 
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Your real-time window to AI innovation. We curate the most impactful stories from 50+ trusted sources so you never miss a breakthrough.
-            </p>
+              <p className="hero-sub fade-up" style={{ animationDelay: '200ms' }}>
+                Fifty stories. One screen. Refreshed every thirty minutes, drawn from {sources.length}+ sources humans actually read.
+              </p>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-sm text-muted-foreground mb-8"
-            >
-              Crafted with ❤️ by <a
-                  href="https://www.linkedin.com/company/c7corp/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-foreground hover:underline"
-                >
-                  C7Corp
-                </a>{" "} in Dubai, UAE 🇦🇪
-            </motion.p>
+              <div
+                className="hero-search fade-up"
+                style={{ animationDelay: '280ms' }}
+                onClick={() => setSearchOpen(true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => e.key === 'Enter' && setSearchOpen(true)}
+              >
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+                </svg>
+                <input
+                  readOnly
+                  placeholder="Search 50 stories — try 'agents', 'robotics', 'open source'…"
+                  onFocus={() => setSearchOpen(true)}
+                />
+                <span className="kbd">{isMac ? '⌘' : 'Ctrl'} K</span>
+              </div>
+            </div>
 
-            {/* Search Bar */}
-            <SearchBar onSearch={handleSearch} />
-          </motion.div>
+            <HeroSide articleCount={filteredArticles.length} sourceCount={sources.length} />
+          </div>
         </div>
       </section>
 
-      {/* Stats */}
-      <HeroStats articleCount={totalCount} sourceCount={sources.length} />
-
-      {/* Filter Bar */}
+      {/* ── Filters ──────────────────────────────────────────── */}
       <FilterBar
         activeCategory={activeCategory}
         activeFilter={activeFilter}
@@ -193,71 +186,97 @@ const Index = () => {
         onFilterChange={setActiveFilter}
       />
 
-      {/* Articles Grid */}
-      <main className="container mx-auto px-4 py-8">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mb-6 flex items-center justify-between"
-        >
-          <p className="text-sm text-muted-foreground">
-            {searchQuery ? (
-              <>
-                Found <span className="font-semibold text-foreground">{totalCount}</span> results for "{searchQuery}"
-              </>
-            ) : (
-              <>
-                Showing <span className="font-semibold text-foreground">{displayedCount}</span> of{' '}
-                <span className="font-semibold text-foreground">{totalCount}</span> trending stories
-              </>
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground mono hidden sm:block">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </p>
-        </motion.div>
+      {/* ── Feed ─────────────────────────────────────────────── */}
+      <div className="shell">
+        <div className="feed-header">
+          <div className="feed-count">
+            Showing <strong>{visible.length}</strong> of <strong>{filteredArticles.length}</strong> stories
+          </div>
+          <div className="feed-count">
+            Last updated <strong>{lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
+          </div>
+        </div>
 
-        {isLoading ? (
-          <LoadingSkeleton />
+        {filteredArticles.length === 0 ? (
+          <div style={{ padding: '64px 0', textAlign: 'center', color: 'var(--ink-3)' }}>
+            <div className="kicker" style={{ marginBottom: 12 }}>NO MATCHES</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, color: 'var(--ink)' }}>
+              Nothing under this slice today.
+            </div>
+            <p style={{ marginTop: 8 }}>Try a wider category or clear the filters.</p>
+          </div>
         ) : (
           <>
-            <AnimatePresence mode="popLayout">
-              {displayedArticles.length > 0 ? (
-                <div className="space-y-6">
-                  {displayedArticles.map((article, index) => (
-                    <ArticleCard key={article.id} article={article} index={index} />
-                  ))}
-                </div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-20"
-                >
-                  <p className="text-2xl mb-2">🔍</p>
-                  <h3 className="text-xl font-semibold mb-2">No articles found</h3>
-                  <p className="text-muted-foreground">
-                    Try adjusting your search or filters
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {featured && (
+              <FeaturedCard
+                article={featured}
+                bookmarked={bookmarks.has(featured.id)}
+                onToggleBookmark={() => toggleBookmark(featured.id)}
+              />
+            )}
 
-            {/* Infinite Scroll Trigger */}
-            <InfiniteScrollTrigger
-              onLoadMore={loadMore}
-              hasMore={hasMore}
-              isLoading={isLoadingMore}
-              displayedCount={displayedCount}
-              totalCount={totalCount}
-            />
+            <div className="feed-list">
+              {rest.map((article, i) => (
+                <ArticleCardWrapper
+                  key={article.id}
+                  article={article}
+                  index={i + 1}
+                  bookmarked={bookmarks.has(article.id)}
+                  onToggleBookmark={() => toggleBookmark(article.id)}
+                />
+              ))}
+            </div>
+
+            {hasMore ? (
+              <div className="loadmore">
+                <button className="btn btn-outline" onClick={() => setShown(s => s + 6)}>
+                  Load more stories
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div className="loadmore" style={{ flexDirection: 'column', gap: 8 }}>
+                <span className="kicker">— END OF TODAY —</span>
+                <span style={{ color: 'var(--ink-3)', fontSize: 13 }}>You're caught up. Next refresh in 30 minutes.</span>
+              </div>
+            )}
           </>
         )}
-      </main>
+      </div>
 
+      {/* ── Guides & Footer ──────────────────────────────────── */}
+      <HowToSection />
       <Footer />
-      <BackToTop />
-    </div>
+
+      {/* ── Overlays & floating elements ─────────────────────── */}
+      <CommandPalette
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        articles={mockArticles}
+      />
+
+      {toast && (
+        <div className="pulse-toast">
+          <span className="dot" />
+          <div>
+            <div style={{ fontWeight: 500 }}>{toast.msg}</div>
+            <div style={{ opacity: 0.65, fontSize: 12 }}>{toast.sub}</div>
+          </div>
+        </div>
+      )}
+
+      <button
+        className={`totop${showTop ? ' show' : ''}`}
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-label="Back to top"
+      >
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+          <path d="m6 14 6-6 6 6"/>
+        </svg>
+      </button>
+    </>
   );
 };
 

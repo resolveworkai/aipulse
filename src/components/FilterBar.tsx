@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import { categories, filters } from '@/data/mockArticles';
 
 interface FilterBarProps {
@@ -9,66 +9,58 @@ interface FilterBarProps {
 }
 
 const FilterBar = ({ activeCategory, activeFilter, onCategoryChange, onFilterChange }: FilterBarProps) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-      className="sticky top-[73px] z-40 py-4 backdrop-blur-xl"
-      style={{
-        background: 'linear-gradient(to bottom, hsl(var(--background) / 0.95), hsl(var(--background) / 0.8))'
-      }}
-    >
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col gap-4">
-          {/* Primary Filters */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {filters.map((filter) => (
-              <motion.button
-                key={filter.id}
-                onClick={() => onFilterChange(filter.id)}
-                className={`
-                  flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap
-                  transition-all duration-300 border
-                  ${activeFilter === filter.id
-                    ? 'bg-primary text-primary-foreground border-primary shadow-glow'
-                    : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-                  }
-                `}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <span>{filter.icon}</span>
-                <span>{filter.label}</span>
-              </motion.button>
-            ))}
-          </div>
+  const segRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState({ x: 0, w: 0 });
 
-          {/* Category Filters */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {categories.map((category) => (
-              <motion.button
-                key={category.id}
-                onClick={() => onCategoryChange(category.id)}
-                className={`
-                  flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap
-                  transition-all duration-300 border
-                  ${activeCategory === category.id
-                    ? 'bg-secondary/20 text-secondary border-secondary/30'
-                    : 'bg-transparent text-muted-foreground border-transparent hover:bg-muted/30 hover:text-foreground'
-                  }
-                `}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <span>{category.icon}</span>
-                <span>{category.label}</span>
-              </motion.button>
-            ))}
-          </div>
+  useEffect(() => {
+    if (!segRef.current) return;
+    const el = segRef.current.querySelector(`button[data-id="${activeFilter}"]`) as HTMLElement;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const p = segRef.current.getBoundingClientRect();
+      setPill({ x: r.left - p.left, w: r.width });
+    }
+  }, [activeFilter]);
+
+  const sortLabels: Record<string, string> = { trending: 'Trending', latest: 'Latest', top: 'Top' };
+  const catLabels: Record<string, string> = {
+    all: 'All', ml: 'ML Core', nlp: 'Language', cv: 'Vision',
+    robotics: 'Robotics', research: 'Research', industry: 'Industry',
+  };
+
+  return (
+    <div className="filter-wrap">
+      <div className="shell filter-row">
+        <div ref={segRef} className="seg" role="tablist">
+          <div className="seg-pill" style={{ transform: `translateX(${pill.x - 3}px)`, width: pill.w }} />
+          {filters.map(f => (
+            <button
+              key={f.id}
+              data-id={f.id}
+              className={activeFilter === f.id ? 'active' : ''}
+              onClick={() => onFilterChange(f.id)}
+              role="tab"
+              aria-selected={activeFilter === f.id}
+            >
+              {sortLabels[f.id] ?? f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="chips" role="tablist" aria-label="Category">
+          {categories.map(c => (
+            <button
+              key={c.id}
+              className={`chip${activeCategory === c.id ? ' active' : ''}`}
+              onClick={() => onCategoryChange(c.id)}
+              aria-selected={activeCategory === c.id}
+            >
+              {catLabels[c.id] ?? c.label}
+            </button>
+          ))}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

@@ -1,204 +1,189 @@
-import { motion } from 'framer-motion';
-import { Flame, MessageCircle, Share2, Clock, ExternalLink, Bookmark, Sparkles } from 'lucide-react';
+import { useState } from 'react';
 import { Article } from '@/data/mockArticles';
-import { useState, forwardRef } from 'react';
 
-interface ArticleCardProps {
-  article: Article;
-  index: number;
+function fmtK(n: number): string {
+  return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K' : String(n);
 }
 
-const ArticleCard = forwardRef<HTMLElement, ArticleCardProps>(({ article, index }, ref) => {
-  const [isBookmarked, setIsBookmarked] = useState(false);
+function Flags({ article }: { article: Article }) {
+  return (
+    <>
+      {article.isNew      && <span className="flag flag-new">NEW</span>}
+      {article.isHot      && <span className="flag flag-hot">HOT</span>}
+      {article.isTrending && <span className="flag flag-trend">RISING</span>}
+    </>
+  );
+}
 
-  const formatEngagement = (num: number) => {
-    if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}K`;
-    }
-    return num.toString();
-  };
+const CategoryLabels: Record<string, string> = {
+  ml: 'ML Core', nlp: 'Language', cv: 'Vision',
+  robotics: 'Robotics', research: 'Research', industry: 'Industry',
+};
 
-  const getRankBadgeStyle = (rank: number) => {
-    if (rank === 1) return 'bg-gradient-to-br from-gold to-coral text-primary-foreground';
-    if (rank === 2) return 'bg-gradient-to-br from-muted-foreground to-muted text-foreground';
-    if (rank === 3) return 'bg-gradient-to-br from-coral to-cyber-purple text-foreground';
-    return 'bg-muted text-muted-foreground';
-  };
-
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      ml: 'tag-ai',
-      nlp: 'tag-ml',
-      cv: 'tag-ai',
-      robotics: 'tag-hot',
-      research: 'tag-ml',
-      industry: 'tag-new',
-    };
-    return colors[category] || 'tag-ai';
-  };
+/* ── Featured card (rank 1) ────────────────────────────────────────── */
+export function FeaturedCard({ article, bookmarked, onToggleBookmark }: {
+  article: Article;
+  bookmarked: boolean;
+  onToggleBookmark: () => void;
+}) {
+  const catLabel = CategoryLabels[article.category] ?? article.category;
 
   return (
-    <motion.article
-      ref={ref}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.3 }}
-      layout
-      className="group relative glass-card p-6 hover:scale-[1.01] transition-all duration-300"
-      whileHover={{
-        boxShadow: '0 8px 40px -8px hsl(var(--primary) / 0.2)',
-      }}
-    >
-      {/* Rank Badge */}
-      <motion.div
-        className={`absolute -top-3 -left-3 w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-lg ${getRankBadgeStyle(article.rank)}`}
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ delay: Math.min(index * 0.03 + 0.1, 0.4), type: 'spring', stiffness: 200 }}
-      >
-        #{article.rank}
-      </motion.div>
-
-      {/* Engagement Score */}
-      <div className="absolute -top-3 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-coral/20 border border-coral/30">
-        <Flame className="w-4 h-4 text-coral" />
-        <span className="text-sm font-semibold text-coral mono">
-          {formatEngagement(article.engagement.score)}
-        </span>
+    <article className="feat fade-up" style={{ animationDelay: '100ms' }}>
+      <div>
+        <div className="rank-mark gold" aria-hidden="true">
+          01<span className="sm">RANK</span>
+        </div>
       </div>
 
-      {/* Status Badges */}
-      <div className="flex items-center gap-2 mb-4 ml-6">
-        {article.isNew && (
-          <motion.span
-            className="px-2 py-0.5 rounded-full text-xs font-medium tag-new border"
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
+      <div>
+        <div className="feat-meta">
+          <span style={{ color: 'var(--ink-2)' }}>{article.source}</span>
+          <span className="dot" />
+          <span>{catLabel}</span>
+          <span className="dot" />
+          <span>{article.timeAgo}</span>
+          <span className="dot" />
+          <Flags article={article} />
+        </div>
+
+        <h2>{article.punchyTitle}</h2>
+        <p className="feat-sum">{article.punchySummary}</p>
+
+        <div className="feat-tags">
+          {article.tags.map(t => <span className="tag" key={t}>#{t}</span>)}
+        </div>
+
+        <div className="feat-actions">
+          <a className="btn btn-primary" href={article.originalUrl} target="_blank" rel="noopener noreferrer">
+            Read original
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14m-6-6 6 6-6 6"/>
+            </svg>
+          </a>
+          <button
+            className={`icon-btn${bookmarked ? ' on' : ''}`}
+            onClick={onToggleBookmark}
+            aria-label="Bookmark"
           >
-            ✨ NEW
-          </motion.span>
-        )}
-        {article.isTrending && (
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium tag-trending border">
-            🔥 TRENDING
+            <svg width={16} height={16} viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 3h12v18l-6-4-6 4z"/>
+            </svg>
+          </button>
+          <button className="icon-btn" aria-label="Share">
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="m16 6-4-4-4 4M12 2v14"/>
+            </svg>
+          </button>
+          <span style={{ flex: 1 }} />
+          <span className="metric">
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2c1 3-2 5-2 8a4 4 0 0 0 8 0c0-2-2-4-2-4 0 3-2 4-2 4s2-5-2-8zM8 14a4 4 0 1 0 8 0"/>
+            </svg>
+            <span className="v">{fmtK(article.engagement.score)}</span>
           </span>
-        )}
-        {article.isHot && (
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium tag-hot border">
-            ⚡ HOT
+          <span className="metric">
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a8 8 0 0 1-13 6L3 19l1-4a8 8 0 1 1 17-3z"/>
+            </svg>
+            <span className="v">{fmtK(article.engagement.comments)}</span>
           </span>
-        )}
-      </div>
-
-      {/* Title */}
-      <h2 className="text-xl md:text-2xl font-bold mb-3 leading-tight group-hover:text-primary transition-colors">
-        {article.punchyTitle}
-      </h2>
-
-      {/* Meta Info */}
-      <div className="flex flex-wrap items-center gap-3 mb-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium text-foreground">{article.source}</span>
-        </div>
-        <span className="text-border">•</span>
-        <div className="flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
-          <span className="mono text-xs">{article.timeAgo}</span>
-        </div>
-        <span className="text-border">•</span>
-        <div className="flex items-center gap-1">
-          <MessageCircle className="w-3.5 h-3.5" />
-          <span className="mono text-xs">{formatEngagement(article.engagement.comments)} comments</span>
         </div>
       </div>
 
-      {/* Punchy Summary */}
-      <p className="text-muted-foreground leading-relaxed mb-4">
-        {article.punchySummary}
-      </p>
-
-      {/* Key Insights */}
-      <div className="mb-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold">KEY INSIGHTS</span>
-        </div>
-        <ul className="space-y-2">
-          {article.keyInsights.map((insight, i) => (
-            <li
-              key={i}
-              className="flex items-start gap-2 text-sm"
-            >
-              <span className="text-primary mt-1">•</span>
-              <span className="text-muted-foreground">{insight}</span>
-            </li>
-          ))}
+      <aside className="feat-side">
+        <div className="insights-h">Key insights</div>
+        <ul className="insights">
+          {article.keyInsights.map((k, i) => <li key={i}>{k}</li>)}
         </ul>
-      </div>
-
-      {/* Power Quote */}
-      {article.powerQuote && (
-        <blockquote className="relative pl-4 py-2 mb-4 border-l-2 border-secondary italic text-muted-foreground">
-          <span className="absolute -left-2 -top-2 text-4xl text-secondary/30">"</span>
-          {article.powerQuote}
-        </blockquote>
-      )}
-
-      {/* Tags */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {article.tags.map((tag) => (
-          <span
-            key={tag}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${getCategoryColor(article.category)}`}
-          >
-            #{tag}
-          </span>
-        ))}
-      </div>
-
-      {/* Actions & Attribution */}
-      <div className="pt-4 border-t border-border/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <motion.button
-              onClick={() => setIsBookmarked(!isBookmarked)}
-              className={`p-2 rounded-lg transition-colors ${
-                isBookmarked ? 'bg-primary/20 text-primary' : 'bg-muted/50 text-muted-foreground hover:text-foreground'
-              }`}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
-            </motion.button>
-            <button className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors">
-              <Share2 className="w-4 h-4" />
-            </button>
+        {article.powerQuote && (
+          <div className="feat-quote">
+            <div className="q">"{article.powerQuote.replace(/^"/, '').replace(/"[^"]*$/, '')}"</div>
+            <div className="who">— {article.source}</div>
           </div>
+        )}
+      </aside>
+    </article>
+  );
+}
 
-          <motion.a
-            href={article.originalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <span>Read Original</span>
-            <ExternalLink className="w-4 h-4" />
-          </motion.a>
+/* ── Row card (rank 2+) ─────────────────────────────────────────────── */
+function ArticleCard({ article, bookmarked, onToggleBookmark }: {
+  article: Article;
+  bookmarked: boolean;
+  onToggleBookmark: () => void;
+}) {
+  const catLabel = CategoryLabels[article.category] ?? article.category;
+  const rankStr = String(article.rank).padStart(2, '0');
+
+  return (
+    <article className="row">
+      <div className="row-rank">{rankStr}</div>
+
+      <div>
+        <div className="row-meta">
+          <span style={{ color: 'var(--ink-2)' }}>{article.source}</span>
+          <span className="dot" />
+          <span className="row-cat">{catLabel}</span>
+          <span className="dot" />
+          <span>{article.timeAgo}</span>
+          <Flags article={article} />
         </div>
-
-        {/* Attribution Notice */}
-        <div className="mt-3 pt-3 border-t border-border/30">
-          <p className="text-xs text-muted-foreground text-center">
-            Content via <span className="font-medium">{article.source}</span> | Curated by AI Pulse Today
-          </p>
+        <h3 className="row-title">{article.punchyTitle}</h3>
+        <p className="row-sum">{article.punchySummary}</p>
+        <div className="row-tags">
+          {article.tags.slice(0, 4).map(t => <span className="tag" key={t}>#{t}</span>)}
         </div>
       </div>
-    </motion.article>
+
+      <div className="row-side">
+        <span className="metric">
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2c1 3-2 5-2 8a4 4 0 0 0 8 0c0-2-2-4-2-4 0 3-2 4-2 4s2-5-2-8zM8 14a4 4 0 1 0 8 0"/>
+          </svg>
+          <span className="v">{fmtK(article.engagement.score)}</span>
+        </span>
+        <span className="metric">
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a8 8 0 0 1-13 6L3 19l1-4a8 8 0 1 1 17-3z"/>
+          </svg>
+          <span className="v">{fmtK(article.engagement.comments)}</span>
+        </span>
+        <div className="row-actions">
+          <button
+            className={`icon-btn${bookmarked ? ' on' : ''}`}
+            onClick={onToggleBookmark}
+            aria-label="Bookmark"
+          >
+            <svg width={15} height={15} viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 3h12v18l-6-4-6 4z"/>
+            </svg>
+          </button>
+          <button className="icon-btn" aria-label="Share">
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="m16 6-4-4-4 4M12 2v14"/>
+            </svg>
+          </button>
+          <a className="icon-btn" href={article.originalUrl} target="_blank" rel="noopener noreferrer" aria-label="Open original">
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7L11 7"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7L13 17"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </article>
   );
-});
+}
 
-ArticleCard.displayName = 'ArticleCard';
-
-export default ArticleCard;
+/* ── Stateful wrapper that manages bookmark state internally ─────────── */
+export default function ArticleCardWrapper({ article, index, bookmarked, onToggleBookmark }: {
+  article: Article;
+  index: number;
+  bookmarked: boolean;
+  onToggleBookmark: () => void;
+}) {
+  if (article.rank === 1 && index === 0) {
+    return <FeaturedCard article={article} bookmarked={bookmarked} onToggleBookmark={onToggleBookmark} />;
+  }
+  return <ArticleCard article={article} bookmarked={bookmarked} onToggleBookmark={onToggleBookmark} />;
+}
